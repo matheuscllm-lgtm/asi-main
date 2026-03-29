@@ -9,7 +9,7 @@ That's ASI-Evolve. It is a general agentic framework that closes the loop betwee
 We built it for AI research. But the loop doesn't care about domain.  
 A financial analyst, a biomedical engineer, a climate scientist, or a game developer can all plug their own problem into ASI-Evolve and let it search for better solutions than any human has time to manually explore.
 
-📄 **Paper:** [ASI-Evolve: AI Accelerates AI](https://github.com/GAIR-NLP/ASI-Evolve/blob/main/assets/paper.pdf) · SJTU / SII / GAIR
+[![Paper](https://img.shields.io/badge/Paper-ASI--Evolve-blue?style=flat&logo=googledocs&logoColor=white)](https://github.com/GAIR-NLP/ASI-Evolve/blob/main/assets/paper.pdf) &nbsp; SJTU / SII / GAIR
 
 ---
 
@@ -256,7 +256,7 @@ python main.py \
   --experiment circle_packing_demo \
   --steps 10 \
   --sample-n 3 \
-  --eval-script /absolute/path/to/experiments/circle_packing_demo/eval.sh
+  --eval-script /path/to/experiments/circle_packing_demo/eval.sh
 ```
 
 ASI-Evolve reaches SOTA-level circle-packing results in as few as **17 rounds**, outpacing OpenEvolve and GEPA.
