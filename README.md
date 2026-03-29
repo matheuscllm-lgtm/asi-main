@@ -1,3 +1,5 @@
+![ASI-Evolve overview](assets/Overview.png)
+
 ## ASI-Evolve
 
 ASI-Evolve is an agentic evolution framework for long-horizon AI research. It closes the loop between prior knowledge, proposal generation, experiment execution, and post-hoc analysis through a repeated `learn -> design -> experiment -> analyze` cycle.
