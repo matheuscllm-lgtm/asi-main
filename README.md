@@ -1,8 +1,5 @@
-![ASI-Evolve overview](assets/Overview.png)
-
-## ASI-Evolve
-
 # ASI-Evolve — Let AI Do the Research, You Keep the Insight
+![ASI-Evolve overview](assets/Overview.png)
 
 > **"What if you could run a tireless AI researcher on your hardest problem — one that reads the literature, designs experiments, runs them, and learns from every failure?"**
 
