@@ -261,7 +261,7 @@ python main.py \
   --eval-script /path/to/experiments/circle_packing_demo/eval.sh
 ```
 
-ASI-Evolve reaches SOTA-level circle-packing results in as few as **17 rounds**, outpacing OpenEvolve and GEPA.
+ASI-Evolve reaches SOTA-level circle-packing results in as few as **17 rounds**.
 
 ---
 
