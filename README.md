@@ -8,7 +8,8 @@ That's ASI-Evolve. It is a general agentic framework that closes the loop betwee
 We built it for AI research. But the loop doesn't care about domain.  
 A financial analyst, a biomedical engineer, a climate scientist, or a game developer can all plug their own problem into ASI-Evolve and let it search for better solutions than any human has time to manually explore.
 
-[![Paper](https://img.shields.io/badge/Paper-ASI--Evolve-blue?style=flat&logo=googledocs&logoColor=white)](https://github.com/GAIR-NLP/ASI-Evolve/blob/main/assets/paper.pdf) &nbsp; SJTU / SII / GAIR
+[![Paper](https://img.shields.io/badge/Paper-ASI--Evolve-blue?style=flat&logo=googledocs&logoColor=white)](https://github.com/GAIR-NLP/ASI-Evolve/blob/main/assets/paper.pdf)
+[![arXiv](https://img.shields.io/badge/arXiv-2603.29640-b31b1b?style=flat&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2603.29640) &nbsp; SJTU / SII / GAIR
 
 ---
 
