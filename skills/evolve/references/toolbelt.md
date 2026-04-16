@@ -27,6 +27,8 @@ Database commands are serialized per run.
 - `python skills/evolve/scripts/evolve-brief normalize`
 - `python skills/evolve/scripts/evolve-eval inspect`
 
+Preflight must align an explicit evaluator timeout. Do not rely on the CLI default alone.
+
 ### Cognition
 
 - `python skills/evolve/scripts/evolve-cognition init`
@@ -94,6 +96,8 @@ Prefer custom features via evaluator result metrics before reaching for a custom
 - `python skills/evolve/scripts/evolve-files diff`
 - `python skills/evolve/scripts/evolve-eval run`
 
+`evolve-eval run` uses the preflight timeout from `evaluation.timeout_secs` by default. `--timeout` is only a manual override; the canonical value still belongs in the run spec.
+
 ### Wrap-up
 
 - `python skills/evolve/scripts/evolve-summary final`
@@ -123,14 +127,17 @@ Experimental takeaways from the round belong in the recorded node analysis, not 
 - `{code_path}`
 - `{results_path}`
 - `{script_path}`
+- `{timeout_secs}`
 - `{quoted_workspace_root}`
 - `{quoted_run_dir}`
 - `{quoted_step_dir}`
 - `{quoted_code_path}`
 - `{quoted_results_path}`
 - `{quoted_script_path}`
+- `{quoted_timeout_secs}`
 
 For robust shell execution, prefer the quoted placeholders in command templates.
+Evaluators should use the configured timeout rather than embedding an unrelated hard-coded limit.
 
 ## Candidate path note
 

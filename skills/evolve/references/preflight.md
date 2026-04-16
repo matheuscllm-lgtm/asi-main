@@ -8,6 +8,7 @@ Preflight is a hard gate.
 - core score
 - secondary metrics
 - evaluator command or evaluator script
+- evaluator timeout
 - success criteria
 - stop conditions
 - round budget
@@ -36,6 +37,10 @@ Before that point:
 - `evolve-summary final`
 
 must refuse to proceed.
+
+Timeout rule:
+- Preflight must record an explicit evaluation timeout.
+- The evaluator path used for the run must honor that timeout contract instead of relying on an unstated default.
 
 ## Cognition sources
 

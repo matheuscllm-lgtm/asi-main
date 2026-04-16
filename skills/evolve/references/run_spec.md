@@ -11,6 +11,7 @@ evaluation:
   secondary_metrics: []
   command: ""
   script_path: ""
+  timeout_secs: 0
   success_criteria: []
 budget:
   max_rounds: 0
@@ -38,6 +39,8 @@ approval:
 
 - `evaluation.command` can use placeholders such as `{code_path}` and `{results_path}`.
 - `evaluation.script_path` is for explicit script inspection and documentation.
+- `evaluation.timeout_secs` is required. Set it during preflight and treat it as the canonical evaluator timeout for the run.
+- `evaluation.command` can also use `{timeout_secs}` and `{quoted_timeout_secs}` so the evaluator script or wrapper can honor the same timeout internally.
 - `approval.confirmed` must stay `false` until the user explicitly confirms the preflight summary.
 - `mutation_scope.writable_paths` are enforced by `evolve-files`.
 - `sampling.algorithm` is a run-level choice; do not change it after nodes have already been recorded.

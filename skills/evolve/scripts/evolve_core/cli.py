@@ -102,6 +102,7 @@ def command_context(
     code_path: Path,
     results_path: Path,
     script_path: Optional[str],
+    timeout_secs: int,
 ) -> Dict[str, str]:
     raw = {
         "workspace_root": str(workspace_root),
@@ -110,6 +111,7 @@ def command_context(
         "code_path": str(code_path),
         "results_path": str(results_path),
         "script_path": script_path or "",
+        "timeout_secs": str(timeout_secs),
     }
     quoted = {
         f"quoted_{key}": f'"{value}"' if value else '""'
@@ -140,6 +142,8 @@ def cmd_brief_normalize(args: argparse.Namespace) -> int:
         spec["evaluation"]["script_path"] = normalize_spec_path(
             workspace_root, args.evaluation_script_path
         )
+    if args.evaluation_timeout_secs is not None:
+        spec["evaluation"]["timeout_secs"] = args.evaluation_timeout_secs
     if args.success_criterion is not None:
         spec["evaluation"]["success_criteria"] = flatten_list(args.success_criterion)
     if args.max_rounds is not None:
@@ -257,10 +261,15 @@ def cmd_eval_run(args: argparse.Namespace) -> int:
     results_path = step_dir / "results.json"
     command = args.command or spec.get("evaluation", {}).get("command", "")
     script_path = args.script_path or spec.get("evaluation", {}).get("script_path", "")
+    evaluation_timeout = args.timeout
+    if evaluation_timeout is None:
+        evaluation_timeout = int(spec.get("evaluation", {}).get("timeout_secs", 0) or 0)
     if not command and script_path:
         command = "python {quoted_script_path} {quoted_code_path} {quoted_results_path}"
     if not command:
         raise SystemExit("No evaluation command or script path is configured.")
+    if evaluation_timeout <= 0:
+        raise SystemExit("Evaluation timeout must be a positive number of seconds.")
 
     formatted = command.format(
         **command_context(
@@ -270,6 +279,7 @@ def cmd_eval_run(args: argparse.Namespace) -> int:
             code_path=step_code_path,
             results_path=results_path,
             script_path=script_path,
+            timeout_secs=evaluation_timeout,
         )
     )
     (step_dir / "eval.command.txt").write_text(formatted, encoding="utf-8")
@@ -284,7 +294,7 @@ def cmd_eval_run(args: argparse.Namespace) -> int:
             cwd=workspace_root,
             capture_output=True,
             text=True,
-            timeout=args.timeout,
+            timeout=evaluation_timeout,
         )
         stdout = completed.stdout
         stderr = completed.stderr
@@ -316,6 +326,7 @@ def cmd_eval_run(args: argparse.Namespace) -> int:
             "command": formatted,
             "return_code": return_code,
             "step_name": step_name,
+            "timeout_secs": evaluation_timeout,
         },
     )
     return emit_json(
@@ -595,6 +606,7 @@ def build_brief_parser() -> argparse.ArgumentParser:
     normalize.add_argument("--secondary-metric", action="append")
     normalize.add_argument("--evaluation-command")
     normalize.add_argument("--evaluation-script-path")
+    normalize.add_argument("--evaluation-timeout-secs", type=int)
     normalize.add_argument("--success-criterion", action="append")
     normalize.add_argument("--max-rounds", type=int)
     normalize.add_argument("--patience", type=int)
@@ -629,7 +641,7 @@ def build_eval_parser() -> argparse.ArgumentParser:
     run_cmd.add_argument("--step-name")
     run_cmd.add_argument("--command")
     run_cmd.add_argument("--script-path")
-    run_cmd.add_argument("--timeout", type=int, default=600)
+    run_cmd.add_argument("--timeout", type=int)
     run_cmd.set_defaults(func=cmd_eval_run)
     return parser
 

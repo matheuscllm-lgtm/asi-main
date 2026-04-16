@@ -25,6 +25,7 @@ DEFAULT_RUN_SPEC: Dict[str, Any] = {
         "secondary_metrics": [],
         "command": "",
         "script_path": "",
+        "timeout_secs": 0,
         "success_criteria": [],
     },
     "budget": {
@@ -63,6 +64,10 @@ REQUIRED_FIELD_CHECKS = {
         str(spec.get("evaluation", {}).get("command", "")).strip()
         or str(spec.get("evaluation", {}).get("script_path", "")).strip()
     ),
+    "evaluation.timeout_secs": lambda spec: int(
+        spec.get("evaluation", {}).get("timeout_secs", 0) or 0
+    )
+    > 0,
     "evaluation.success_criteria": lambda spec: bool(
         spec.get("evaluation", {}).get("success_criteria")
     ),
@@ -213,6 +218,7 @@ def write_preflight_summary(run_dir: Path, spec: Dict[str, Any]) -> Path:
         f"- Secondary metrics: {', '.join(spec.get('evaluation', {}).get('secondary_metrics', [])) or '(none)'}",
         f"- Evaluation command: {spec.get('evaluation', {}).get('command', '') or '(missing)'}",
         f"- Evaluation script: {spec.get('evaluation', {}).get('script_path', '') or '(missing)'}",
+        f"- Evaluation timeout (s): {spec.get('evaluation', {}).get('timeout_secs', 0) or '(missing)'}",
         f"- Success criteria: {', '.join(spec.get('evaluation', {}).get('success_criteria', [])) or '(missing)'}",
         f"- Budget: max_rounds={spec.get('budget', {}).get('max_rounds', 0)}, patience={spec.get('budget', {}).get('patience', 0)}",
         f"- Stop conditions: {', '.join(spec.get('stop_conditions', [])) or '(missing)'}",

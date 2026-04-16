@@ -22,6 +22,7 @@ Treat this skill as the single-agent abstraction of `ASI-Evolve-dev`. Preserve t
   - core score
   - secondary metrics
   - evaluation command or script
+  - evaluation timeout
   - success criteria
   - stop conditions and round budget
   - writable file scope and primary targets
@@ -29,6 +30,8 @@ Treat this skill as the single-agent abstraction of `ASI-Evolve-dev`. Preserve t
   - island feature dimensions when `sampling.algorithm=island`
   - cognition source mode
 - Inspect the evaluator before confirmation. If the command or script is vague, pause and resolve it before continuing.
+- Require an explicit evaluator timeout during preflight. Do not treat timeout as an implicit default.
+- Confirm that the evaluator path you will use has timeout handling. The outer `evolve-eval run` timeout is mandatory, and the evaluator command or script should also accept or honor the configured timeout when it can hang internally.
 - Confirm that the evaluator can load the materialized candidate path that `evolve-eval run` produces. The default step artifact is `steps/<step-name>/code` with no forced extension or filename convention.
 - If you choose the sampling algorithm yourself during preflight, tell the user explicitly which algorithm you picked and why.
 - If you choose `island`, also tell the user the default feature semantics: `complexity=len(code)` and `diversity=code-difference heuristic over stored programs`, and mention that they can override the feature list before confirmation.
@@ -93,7 +96,9 @@ Treat this skill as the single-agent abstraction of `ASI-Evolve-dev`. Preserve t
 - Do not import or rely on `pipeline/` agents for orchestration.
 - Do not mutate files outside `mutation_scope.writable_paths`.
 - Do not mark preflight as confirmed while required fields are missing.
+- Do not confirm preflight without an explicit evaluation timeout.
 - Do not treat unstructured evaluator output as authoritative. Normalize it into explicit metrics before comparing candidates.
+- Do not run an evaluator that can hang indefinitely or ignores the agreed timeout contract.
 - Do not skip the per-round database sample. Each round must begin from sampled run memory, not just whatever remains in chat context.
 - Do not rely on raw chat context as the only memory of prior rounds. Use the database and cognition store as the durable sources of truth.
 - Do not put task definitions, interfaces, evaluator specs, or per-round experimental lessons into cognition. Cognition is for reusable external insights, while experiment outcomes belong in the database.
