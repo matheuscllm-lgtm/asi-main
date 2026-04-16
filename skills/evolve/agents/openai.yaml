@@ -1,7 +1,7 @@
 interface:
-  display_name: "Evolve Skill"
-  short_description: "Run explicit preflight-gated evolution loops"
-  default_prompt: "Use $evolve to align the objective, scoring, evaluator, and cognition first, then drive the evolution loop round by round."
+  display_name: "ASI Evolve"
+  short_description: "Run preflight-gated evaluator-driven evolution loops"
+  default_prompt: "Use $evolve to turn an objective, evaluator, writable scope, and cognition into an explicit ASI-Evolve run that iterates round by round."
 
 policy:
   allow_implicit_invocation: true

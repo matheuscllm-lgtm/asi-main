@@ -379,7 +379,6 @@ def cmd_db_record(args: argparse.Namespace) -> int:
     spec = require_evolve_ready(run_dir)
     db = build_database(run_dir, spec)
     snapshot = BestSnapshotManager(Path(run_dir) / "steps")
-    snapshot.init_from_nodes(db.get_all())
     workspace_root = workspace_root_for_run(run_dir)
 
     source_code = Path(args.code_path)
@@ -430,7 +429,8 @@ def cmd_db_record(args: argparse.Namespace) -> int:
         score=score,
         meta_info={"step_name": step_name},
     )
-    node_id = db.add(node)
+    node_id, previous_nodes = db.add_with_previous_nodes(node)
+    snapshot.init_from_nodes(previous_nodes)
     node_file = step_dir / "node.json"
     node_file.write_text(json.dumps(node.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
     best_updated = snapshot.update_if_better(node, step_name=step_name, source_step_dir=step_dir)
@@ -464,12 +464,12 @@ def cmd_db_stats(args: argparse.Namespace) -> int:
     run_dir = Path(args.run_dir).resolve()
     spec = require_evolve_ready(run_dir)
     db = build_database(run_dir, spec)
-    nodes = db.get_all()
+    nodes, sampler_stats = db.snapshot()
     best_score = max((node.score for node in nodes), default=0.0)
     return emit_json(
         {
             "best_score": best_score,
-            "sampler_stats": db.get_sampler_stats(),
+            "sampler_stats": sampler_stats,
             "total_nodes": len(nodes),
         }
     )

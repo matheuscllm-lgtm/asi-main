@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
+import time
 import textwrap
 import unittest
 from contextlib import contextmanager
@@ -19,12 +21,22 @@ LOCAL_TEMP_ROOT = REPO_ROOT / ".test_tmp"
 LOCAL_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
 
 
-def run_cli(script_name: str, *args: str, cwd: Path = REPO_ROOT, check: bool = True):
+def run_cli(
+    script_name: str,
+    *args: str,
+    cwd: Path = REPO_ROOT,
+    check: bool = True,
+    env: dict[str, str] | None = None,
+):
+    full_env = os.environ.copy()
+    if env:
+        full_env.update(env)
     completed = subprocess.run(
         [sys.executable, str(SCRIPT_ROOT / script_name), *args],
         cwd=cwd,
         capture_output=True,
         text=True,
+        env=full_env,
     )
     if check and completed.returncode != 0:
         raise AssertionError(
@@ -591,6 +603,101 @@ class EvolveSkillTests(unittest.TestCase):
         finally:
             if run_dir.exists():
                 shutil.rmtree(run_dir)
+
+    def test_concurrent_record_best_and_sample_share_a_committed_snapshot(self):
+        with temporary_workspace() as workspace:
+            allowed = workspace / "allowed"
+            allowed.mkdir(parents=True, exist_ok=True)
+            run_dir = normalize_confirmed_run(workspace, "parallel-db-run")
+
+            code_path = allowed / "prog_1.py"
+            code_path.write_text("print(1)\n", encoding="utf-8")
+            results_path = allowed / "results_1.json"
+            results_path.write_text(
+                json.dumps({"score": 1.0, "eval_score": 1.0, "success": True}),
+                encoding="utf-8",
+            )
+
+            record_process = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(SCRIPT_ROOT / "evolve-db"),
+                    "record",
+                    "--run-dir",
+                    str(run_dir),
+                    "--step-name",
+                    "step_1",
+                    "--name",
+                    "node_1",
+                    "--code-path",
+                    str(code_path),
+                    "--results-file",
+                    str(results_path),
+                    "--analysis",
+                    "analysis 1",
+                    "--motivation",
+                    "motivation 1",
+                ],
+                cwd=REPO_ROOT,
+                env={**os.environ, "EVOLVE_DB_TEST_HOLD_LOCK_MS": "750"},
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            time.sleep(0.2)
+
+            best_process = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(SCRIPT_ROOT / "evolve-db"),
+                    "best",
+                    "--run-dir",
+                    str(run_dir),
+                ],
+                cwd=REPO_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            sample_process = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(SCRIPT_ROOT / "evolve-db"),
+                    "sample",
+                    "--run-dir",
+                    str(run_dir),
+                    "--n",
+                    "3",
+                    "--algorithm",
+                    "ucb1",
+                ],
+                cwd=REPO_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            record_stdout, record_stderr = record_process.communicate(timeout=30)
+            best_stdout, best_stderr = best_process.communicate(timeout=30)
+            sample_stdout, sample_stderr = sample_process.communicate(timeout=30)
+
+            self.assertEqual(record_process.returncode, 0, record_stderr)
+            self.assertEqual(best_process.returncode, 0, best_stderr)
+            self.assertEqual(sample_process.returncode, 0, sample_stderr)
+
+            best_payload = json.loads(best_stdout)
+            sample_payload = json.loads(sample_stdout)
+
+            self.assertEqual(best_payload["best"]["name"], "node_1")
+            self.assertEqual(best_payload["best"]["score"], 1.0)
+            self.assertEqual(len(sample_payload["nodes"]), 1)
+            self.assertEqual(sample_payload["nodes"][0]["name"], "node_1")
+
+            nodes_payload = json.loads(
+                (run_dir / "database_data" / "nodes.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(len(nodes_payload["nodes"]), 1)
 
 
 def build_run_dir_for_test(workspace_root: Path, run_name: str) -> Path:

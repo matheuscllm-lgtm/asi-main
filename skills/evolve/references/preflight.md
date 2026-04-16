@@ -36,15 +36,20 @@ must refuse to proceed.
 
 ## Cognition sources
 
-Two supported seed paths:
+Use cognition only for reusable external insight sources.
 
-1. User-provided knowledge
-- Rules of thumb
-- Papers
-- Existing heuristics
-- Desired search directions
+Good cognition inputs:
+- Approved web research
+- Paper takeaways
+- Distilled heuristics from external sources
 
-2. Approved agent research
+Keep these out of cognition:
+- Problem definition
+- Function or file interface details
+- Evaluator command details
+- Round-by-round experimental conclusions
+
+Approved agent research:
 - Use subagents only when the user explicitly allows it.
 - Summarize the candidate seeds back to the user.
 - Only initialize cognition after confirmation.

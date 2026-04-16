@@ -36,3 +36,4 @@ approval:
 - `evaluation.script_path` is for explicit script inspection and documentation.
 - `approval.confirmed` must stay `false` until the user explicitly confirms the preflight summary.
 - `mutation_scope.writable_paths` are enforced by `evolve-files`.
+- `cognition.seed_files` and `cognition.seed_notes` should contain reusable external insights, not task scaffolding or experimental analyses.
