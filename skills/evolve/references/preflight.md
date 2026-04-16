@@ -13,6 +13,9 @@ Preflight is a hard gate.
 - round budget
 - writable paths
 - primary targets
+- sampling algorithm
+- island feature dimensions when using `island`
+- custom sampler path and class when using `custom`
 - cognition source mode
 
 ## Confirmation rule

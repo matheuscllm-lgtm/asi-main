@@ -25,9 +25,13 @@ Treat this skill as the single-agent abstraction of `ASI-Evolve-dev`. Preserve t
   - success criteria
   - stop conditions and round budget
   - writable file scope and primary targets
+  - sampling algorithm
+  - island feature dimensions when `sampling.algorithm=island`
   - cognition source mode
 - Inspect the evaluator before confirmation. If the command or script is vague, pause and resolve it before continuing.
 - Confirm that the evaluator can load the materialized candidate path that `evolve-eval run` produces. The default step artifact is `steps/<step-name>/code` with no forced extension or filename convention.
+- If you choose the sampling algorithm yourself during preflight, tell the user explicitly which algorithm you picked and why.
+- If you choose `island`, also tell the user the default feature semantics: `complexity=len(code)` and `diversity=code-difference heuristic over stored programs`, and mention that they can override the feature list before confirmation.
 - Refresh the preflight artifacts with `scripts/evolve-brief normalize`.
 - Keep `approval.confirmed=false` until the user explicitly approves the preflight summary.
 - Refuse to run evolve commands that mutate files, execute the evaluator, or write the final summary before confirmation.
@@ -64,11 +68,17 @@ Treat this skill as the single-agent abstraction of `ASI-Evolve-dev`. Preserve t
 - Prefer patching when the last result reveals a specific local defect, missing constraint, or narrow optimization opportunity.
 - Prefer rewriting when the current structure fights the objective, repeats the same failure mode, or needs a cleaner decomposition.
 - Prefer branching from the best-performing or most informative parent, not automatically from the newest one.
+- Treat the sampling algorithm as a run-level choice. Do not switch algorithms mid-run; start a new run if the search needs a different sampling regime.
 - Choose the sampling algorithm deliberately:
   - `random`: highest exploration pressure. Good for early scouting, escaping local ruts, or checking whether the current search narrative is too narrow.
-  - `island`: the diversity-oriented option, closer to a MAP-Elites-style long-horizon search. Prefer it when you want more balanced exploration across families and better long-run coverage of different solution types.
+  - `island`: the diversity-oriented option, closer to a MAP-Elites-style long-horizon search. Prefer it when you want more balanced exploration across families and better long-run coverage of different solution types. Its default features are `complexity` and `diversity`.
   - `ucb1`: the default when there is already a plausible direction and you want to keep exploring while still pushing harder on promising parents.
   - `greedy`: pure exploitation. Use it only when you intentionally want to squeeze the current best family rather than broaden the search.
+- For `island`, use built-in features unless there is a clear reason to override them:
+  - `complexity`: code length
+  - `diversity`: code-difference heuristic across stored programs
+  - any other feature name must map to a numeric evaluator result field
+- If the built-in samplers are not enough, use a custom sampler only after preflight aligns on its path, class name, and intended behavior.
 - Treat evaluator regressions as information. Record the lesson instead of erasing the failed branch from history.
 - Stop early when success criteria are met, patience is exhausted, the evaluator signal is too noisy to rank candidates, or the approved mutation scope is no longer sufficient.
 
@@ -87,6 +97,7 @@ Treat this skill as the single-agent abstraction of `ASI-Evolve-dev`. Preserve t
 - Do not skip the per-round database sample. Each round must begin from sampled run memory, not just whatever remains in chat context.
 - Do not rely on raw chat context as the only memory of prior rounds. Use the database and cognition store as the durable sources of truth.
 - Do not put task definitions, interfaces, evaluator specs, or per-round experimental lessons into cognition. Cognition is for reusable external insights, while experiment outcomes belong in the database.
+- Do not try to override the sampling algorithm inside `evolve-db sample`. Sampling configuration is owned by the run spec and fixed for the run.
 - Do not launch multiple `evolve-db` commands concurrently against the same run.
 
 ## Read when needed

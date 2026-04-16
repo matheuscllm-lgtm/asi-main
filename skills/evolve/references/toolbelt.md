@@ -48,6 +48,44 @@ Database commands are serialized per run.
 - `greedy`: use for short-horizon exploitation only. It is appropriate when you explicitly want to focus on the current strongest parents and accept reduced diversity.
 
 If unsure, start with `ucb1`. Switch to `island` when diversity matters more, and switch to `random` when you suspect the current search story is overfit or too narrow.
+Treat the chosen sampling algorithm as run-level configuration, not a per-round toggle.
+
+### Island feature guide
+
+- Default `island` features are `complexity` and `diversity`.
+- `complexity` means `len(code)`.
+- `diversity` means the built-in code-difference heuristic over stored programs.
+- Any additional feature name must appear as a numeric field in evaluator `results.json`.
+- Align the `island` feature list during preflight, not mid-run.
+
+### Custom sampler guide
+
+Use a custom sampler only when the built-in samplers are not expressive enough.
+
+Set these fields in `run_spec.yaml`:
+
+```yaml
+sampling:
+  algorithm: "custom"
+  custom_sampler_path: "samplers/my_sampler.py"
+  custom_sampler_class: "MySampler"
+```
+
+Required interface:
+
+- `sample(nodes, n) -> list[Node]`
+
+Optional hooks:
+
+- `on_node_added(node)`
+- `on_node_removed(node)`
+- `get_state()`
+- `load_state(state)`
+- `rebuild_from_nodes(nodes)`
+- `get_island_stats(nodes)`
+
+Useful `Node` fields include `id`, `parent`, `score`, `visit_count`, `results`, `analysis`, `motivation`, `meta_info`, and `code`.
+Prefer custom features via evaluator result metrics before reaching for a custom sampler.
 
 ### File and evaluation helpers
 
@@ -73,6 +111,7 @@ Every round should follow this order:
 
 The per-round database sample is mandatory. Cognition lookup is conditional, but durable memory must come from the database or cognition store rather than from raw conversation context.
 Experimental takeaways from the round belong in the recorded node analysis, not in cognition.
+`evolve-db sample` does not accept a per-call algorithm override. Set the sampling algorithm in preflight instead.
 
 ## Evaluator placeholders
 

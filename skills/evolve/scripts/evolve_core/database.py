@@ -73,7 +73,8 @@ class Database:
             node.id = self.next_id
             self.next_id += 1
             self.nodes[node.id] = node
-            self.default_sampler.on_node_added(node)
+            if hasattr(self.default_sampler, "on_node_added"):
+                self.default_sampler.on_node_added(node)
 
             context_text = node.get_context_text()
             if context_text:
@@ -99,7 +100,8 @@ class Database:
             if node_id not in self.nodes:
                 return False
             node = self.nodes[node_id]
-            self.default_sampler.on_node_removed(node)
+            if hasattr(self.default_sampler, "on_node_removed"):
+                self.default_sampler.on_node_removed(node)
             del self.nodes[node_id]
             self.faiss.remove(node_id)
             self._save_locked()
@@ -129,7 +131,8 @@ class Database:
             return
         worst_id = min(self.nodes, key=lambda node_id: (self.nodes[node_id].score, node_id))
         node = self.nodes[worst_id]
-        self.default_sampler.on_node_removed(node)
+        if hasattr(self.default_sampler, "on_node_removed"):
+            self.default_sampler.on_node_removed(node)
         del self.nodes[worst_id]
         self.faiss.remove(worst_id)
 

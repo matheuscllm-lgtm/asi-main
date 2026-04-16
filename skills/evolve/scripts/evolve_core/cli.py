@@ -18,7 +18,7 @@ from .database import Database
 from .run_state import (
     append_round_log,
     build_run_dir,
-    compute_missing_fields,
+    compute_missing_fields_for_workspace,
     deep_merge,
     ensure_path_allowed,
     ensure_run_layout,
@@ -28,10 +28,18 @@ from .run_state import (
     load_structured_file,
     normalize_spec_path,
     require_evolve_ready,
-    resolve_path,
     save_run_spec,
     workspace_root_for_run,
     write_preflight_summary,
+)
+from .sampling_config import (
+    SAMPLING_CONFIG_IMMUTABLE_ERROR,
+    build_database_sampling_config,
+    configured_sampling_algorithm,
+    configured_sample_n,
+    run_has_recorded_nodes,
+    sampling_config_fingerprint,
+    validate_custom_sampler_for_workspace,
 )
 from .structures import CognitionItem, Node
 
@@ -53,12 +61,10 @@ def parse_bool(value: Optional[str]) -> Optional[bool]:
 
 
 def build_database(run_dir: Path, spec: Dict[str, Any]) -> Database:
-    algorithm = spec.get("sampling", {}).get("algorithm", "ucb1")
-    sampling_kwargs: Dict[str, Any] = {}
-    if algorithm == "island":
-        sampling_kwargs = {
-            "feature_dimensions": ["complexity", "diversity"],
-        }
+    algorithm, sampling_kwargs = build_database_sampling_config(
+        spec,
+        workspace_root_for_run(run_dir),
+    )
     return Database(
         storage_dir=Path(run_dir) / "database_data",
         sampling_algorithm=algorithm,
@@ -117,6 +123,7 @@ def cmd_brief_normalize(args: argparse.Namespace) -> int:
     run_dir = build_run_dir(workspace_root, args.run_name)
     ensure_run_layout(run_dir)
     spec = load_run_spec(run_dir)
+    original_sampling = sampling_config_fingerprint(spec)
 
     if args.spec_file:
         spec = deep_merge(spec, load_structured_file(Path(args.spec_file)))
@@ -155,6 +162,16 @@ def cmd_brief_normalize(args: argparse.Namespace) -> int:
         spec["sampling"]["algorithm"] = args.sampling_algorithm
     if args.sample_n is not None:
         spec["sampling"]["sample_n"] = args.sample_n
+    if args.sampling_feature is not None:
+        spec["sampling"]["feature_dimensions"] = flatten_list(args.sampling_feature)
+    if args.sampling_feature_bins is not None:
+        spec["sampling"]["feature_bins"] = args.sampling_feature_bins
+    if args.sampling_custom_sampler_path is not None:
+        spec["sampling"]["custom_sampler_path"] = normalize_spec_path(
+            workspace_root, args.sampling_custom_sampler_path
+        )
+    if args.sampling_custom_sampler_class is not None:
+        spec["sampling"]["custom_sampler_class"] = args.sampling_custom_sampler_class
     if args.cognition_source_mode is not None:
         spec["cognition"]["source_mode"] = args.cognition_source_mode
     if args.seed_file is not None:
@@ -166,12 +183,22 @@ def cmd_brief_normalize(args: argparse.Namespace) -> int:
     if args.confirmed is not None:
         spec["approval"]["confirmed"] = args.confirmed
 
-    missing = compute_missing_fields(spec)
+    missing = compute_missing_fields_for_workspace(spec, workspace_root)
+    custom_sampler_error = validate_custom_sampler_for_workspace(spec, workspace_root)
     if spec.get("approval", {}).get("confirmed") and missing:
+        detail = ""
+        if custom_sampler_error:
+            detail = f" Custom sampler validation failed: {custom_sampler_error}"
         raise SystemExit(
             "Cannot confirm preflight while required fields are missing: "
             + ", ".join(missing)
+            + detail
         )
+
+    if run_has_recorded_nodes(run_dir):
+        updated_sampling = sampling_config_fingerprint(spec)
+        if updated_sampling != original_sampling:
+            raise SystemExit(SAMPLING_CONFIG_IMMUTABLE_ERROR)
 
     spec_file = save_run_spec(run_dir, spec)
     summary_file = write_preflight_summary(run_dir, spec)
@@ -180,6 +207,7 @@ def cmd_brief_normalize(args: argparse.Namespace) -> int:
         {
             "confirmed": spec["approval"]["confirmed"],
             "missing_fields": missing,
+            "custom_sampler_error": custom_sampler_error,
             "preflight_summary": str(summary_file),
             "run_dir": str(run_dir),
             "run_spec": str(spec_file),
@@ -368,9 +396,10 @@ def cmd_db_sample(args: argparse.Namespace) -> int:
     run_dir = Path(args.run_dir).resolve()
     spec = require_evolve_ready(run_dir)
     db = build_database(run_dir, spec)
-    n = args.n or spec.get("sampling", {}).get("sample_n", 3)
-    sampled = db.sample(n=n, algorithm=args.algorithm)
-    append_round_log(run_dir, "db_sample", {"n": n, "algorithm": args.algorithm or spec["sampling"]["algorithm"]})
+    configured_algorithm = configured_sampling_algorithm(spec)
+    n = args.n or configured_sample_n(spec)
+    sampled = db.sample(n=n)
+    append_round_log(run_dir, "db_sample", {"n": n, "algorithm": configured_algorithm})
     return emit_json({"nodes": [node.to_dict() for node in sampled]})
 
 
@@ -574,6 +603,10 @@ def build_brief_parser() -> argparse.ArgumentParser:
     normalize.add_argument("--primary-target", action="append")
     normalize.add_argument("--sampling-algorithm")
     normalize.add_argument("--sample-n", type=int)
+    normalize.add_argument("--sampling-feature", action="append")
+    normalize.add_argument("--sampling-feature-bins", type=int)
+    normalize.add_argument("--sampling-custom-sampler-path")
+    normalize.add_argument("--sampling-custom-sampler-class")
     normalize.add_argument("--cognition-source-mode")
     normalize.add_argument("--seed-file", action="append")
     normalize.add_argument("--seed-note", action="append")
@@ -634,7 +667,6 @@ def build_db_parser() -> argparse.ArgumentParser:
     sample_cmd = subparsers.add_parser("sample")
     sample_cmd.add_argument("--run-dir", required=True)
     sample_cmd.add_argument("--n", type=int)
-    sample_cmd.add_argument("--algorithm")
     sample_cmd.set_defaults(func=cmd_db_sample)
 
     record_cmd = subparsers.add_parser("record")

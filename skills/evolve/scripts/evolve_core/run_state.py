@@ -6,9 +6,16 @@ import copy
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 import yaml
+
+from .sampling_config import (
+    DEFAULT_ISLAND_FEATURE_BINS,
+    DEFAULT_ISLAND_FEATURE_DIMENSIONS,
+    sampling_summary_lines,
+    validate_custom_sampler_for_workspace as validate_sampling_custom_sampler_for_workspace,
+)
 
 
 DEFAULT_RUN_SPEC: Dict[str, Any] = {
@@ -32,6 +39,10 @@ DEFAULT_RUN_SPEC: Dict[str, Any] = {
     "sampling": {
         "algorithm": "ucb1",
         "sample_n": 3,
+        "feature_dimensions": list(DEFAULT_ISLAND_FEATURE_DIMENSIONS),
+        "feature_bins": DEFAULT_ISLAND_FEATURE_BINS,
+        "custom_sampler_path": "",
+        "custom_sampler_class": "",
     },
     "cognition": {
         "source_mode": "",
@@ -69,6 +80,13 @@ REQUIRED_FIELD_CHECKS = {
         str(spec.get("sampling", {}).get("algorithm", "")).strip()
     ),
     "sampling.sample_n": lambda spec: int(spec.get("sampling", {}).get("sample_n", 0) or 0) > 0,
+    "sampling.custom_sampler": lambda spec: (
+        str(spec.get("sampling", {}).get("algorithm", "")).strip() != "custom"
+        or (
+            bool(str(spec.get("sampling", {}).get("custom_sampler_path", "")).strip())
+            and bool(str(spec.get("sampling", {}).get("custom_sampler_class", "")).strip())
+        )
+    ),
     "cognition.source_mode": lambda spec: bool(
         str(spec.get("cognition", {}).get("source_mode", "")).strip()
     ),
@@ -157,15 +175,33 @@ def resolve_path(workspace_root: Path, raw_path: str) -> Path:
 
 
 def compute_missing_fields(spec: Dict[str, Any]) -> List[str]:
+    return compute_missing_fields_for_workspace(spec)
+
+
+def compute_missing_fields_for_workspace(
+    spec: Dict[str, Any],
+    workspace_root: Optional[Path] = None,
+) -> List[str]:
     missing = []
     for field, check in REQUIRED_FIELD_CHECKS.items():
         if not check(spec):
             missing.append(field)
+    custom_sampler_error = validate_custom_sampler_for_workspace(spec, workspace_root)
+    if custom_sampler_error:
+        missing.append("sampling.custom_sampler_valid")
     return missing
 
 
+def validate_custom_sampler_for_workspace(
+    spec: Dict[str, Any],
+    workspace_root: Optional[Path] = None,
+) -> str:
+    return validate_sampling_custom_sampler_for_workspace(spec, workspace_root)
+
+
 def write_preflight_summary(run_dir: Path, spec: Dict[str, Any]) -> Path:
-    missing = compute_missing_fields(spec)
+    workspace_root = workspace_root_for_run(run_dir)
+    missing = compute_missing_fields_for_workspace(spec, workspace_root)
     confirmed = bool(spec.get("approval", {}).get("confirmed", False))
     status = "READY" if confirmed and not missing else "PENDING"
     lines = [
@@ -182,13 +218,18 @@ def write_preflight_summary(run_dir: Path, spec: Dict[str, Any]) -> Path:
         f"- Stop conditions: {', '.join(spec.get('stop_conditions', [])) or '(missing)'}",
         f"- Writable paths: {', '.join(spec.get('mutation_scope', {}).get('writable_paths', [])) or '(missing)'}",
         f"- Primary targets: {', '.join(spec.get('mutation_scope', {}).get('primary_targets', [])) or '(missing)'}",
+        *sampling_summary_lines(spec, workspace_root),
         f"- Cognition source mode: {spec.get('cognition', {}).get('source_mode', '') or '(missing)'}",
         f"- Cognition seed files: {', '.join(spec.get('cognition', {}).get('seed_files', [])) or '(none)'}",
         f"- Cognition seed notes: {', '.join(spec.get('cognition', {}).get('seed_notes', [])) or '(none)'}",
         f"- Approval confirmed: {confirmed}",
-        "",
-        "## Missing fields",
     ]
+    lines.extend(
+        [
+            "",
+            "## Missing fields",
+        ]
+    )
     if missing:
         lines.extend([f"- {field}" for field in missing])
     else:
@@ -240,7 +281,7 @@ def initialize_cognition_seed_file(run_dir: Path, spec: Dict[str, Any]) -> Path:
 
 def require_evolve_ready(run_dir: Path) -> Dict[str, Any]:
     spec = load_run_spec(run_dir)
-    missing = compute_missing_fields(spec)
+    missing = compute_missing_fields_for_workspace(spec, workspace_root_for_run(run_dir))
     if missing:
         raise ValueError(
             "Preflight is incomplete. Missing fields: " + ", ".join(missing)

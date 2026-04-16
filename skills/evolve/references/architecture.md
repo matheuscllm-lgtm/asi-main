@@ -16,6 +16,8 @@ This skill is intentionally split into two layers:
 - cognition store
 - experiment database
 - samplers: `ucb1`, `greedy`, `random`, `island`
+- centralized sampling config helpers for run-level algorithm selection, island features, and custom sampler validation/loading
+- optional external custom sampler loading via `sampling.custom_sampler_path` and `sampling.custom_sampler_class`
 - core structures such as `Node` and `CognitionItem`
 - diff helpers
 - best snapshot persistence
