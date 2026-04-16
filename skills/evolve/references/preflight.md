@@ -27,6 +27,9 @@ Preflight is not complete until:
 2. `preflight_summary.md` reflects the current plan.
 3. `approval.confirmed` is explicitly set to `true`.
 
+Always present a concrete plan/approach summary to the user before confirmation, even if the initial task description already seems complete.
+Do not treat the user's original task request as implicit approval to start evolve.
+
 Before that point:
 - `evolve-db sample`
 - `evolve-db record`

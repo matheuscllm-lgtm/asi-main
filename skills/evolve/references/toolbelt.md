@@ -6,11 +6,14 @@ The CLI wrappers live in `skills/evolve/scripts/`.
 
 1. Normalize the run brief.
 2. Inspect the evaluator.
-3. Draft or update `cognition_seed.md`.
-4. Initialize cognition.
-5. Re-run brief normalization with `--confirmed true` after explicit user approval.
-6. Run per-round loops anchored on `sample`, with cognition lookup or web refresh added whenever the next improvement is not already clear.
-7. Produce the final summary.
+3. Present the preflight plan/approach summary to the user
+4. Draft or update `cognition_seed.md`.
+5. Initialize cognition.
+6. Re-run brief normalization with `--confirmed true` only after explicit user approval of that presented plan.
+7. Run per-round loops anchored on `sample`, with cognition lookup or web refresh added whenever the next improvement is not already clear.
+8. Produce the final summary.
+
+The evolve loop is agent-operated. Do not write a local runner script that performs the round loop, chooses parents, or mutates candidates for you.
 
 ## Concurrency rule
 
@@ -28,6 +31,7 @@ Database commands are serialized per run.
 - `python skills/evolve/scripts/evolve-eval inspect`
 
 Preflight must align an explicit evaluator timeout. Do not rely on the CLI default alone.
+Do not skip the explicit plan/approach handoff. The initial task request is not equivalent to confirmation.
 
 ### Cognition
 
@@ -97,6 +101,7 @@ Prefer custom features via evaluator result metrics before reaching for a custom
 - `python skills/evolve/scripts/evolve-eval run`
 
 `evolve-eval run` uses the preflight timeout from `evaluation.timeout_secs` by default. `--timeout` is only a manual override; the canonical value still belongs in the run spec.
+Allowed helper scripts here are things like an evaluator or a user-requested visualization tool. Do not add a project-local evolve controller or optimizer script.
 
 ### Wrap-up
 

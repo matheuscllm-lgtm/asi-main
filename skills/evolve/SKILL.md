@@ -10,6 +10,7 @@ Treat this skill as the single-agent abstraction of `ASI-Evolve-dev`. Preserve t
 ## Preserve the operating model
 - Keep the four-stage loop intact: learn, design, experiment, analyze.
 - Use the bundled wrappers in `scripts/` for stateful operations. Let the agent make orchestration decisions; do not recreate the repository's pipeline stack.
+- The agent itself must choose mutations, run experiments, inspect outputs, and write round analyses step by step.
 - Keep two memory systems alive for the whole run:
   - cognition store for approved external research, paper takeaways, and search-derived insights that may help future rounds
   - experiment database for every candidate, score, analysis, lineage, best snapshot, and lessons learned from actual experiments
@@ -30,6 +31,7 @@ Treat this skill as the single-agent abstraction of `ASI-Evolve-dev`. Preserve t
   - island feature dimensions when `sampling.algorithm=island`
   - cognition source mode
 - Inspect the evaluator before confirmation. If the command or script is vague, pause and resolve it before continuing.
+- Even when the user already gave a detailed task description, you must still produce a concrete preflight plan/approach summary before any evolve round starts.
 - Require an explicit evaluator timeout during preflight. Do not treat timeout as an implicit default.
 - Confirm that the evaluator path you will use has timeout handling. The outer `evolve-eval run` timeout is mandatory, and the evaluator command or script should also accept or honor the configured timeout when it can hang internally.
 - Confirm that the evaluator can load the materialized candidate path that `evolve-eval run` produces. The default step artifact is `steps/<step-name>/code` with no forced extension or filename convention.
@@ -37,6 +39,7 @@ Treat this skill as the single-agent abstraction of `ASI-Evolve-dev`. Preserve t
 - If you choose `island`, also tell the user the default feature semantics: `complexity=len(code)` and `diversity=code-difference heuristic over stored programs`, and mention that they can override the feature list before confirmation.
 - Refresh the preflight artifacts with `scripts/evolve-brief normalize`.
 - Keep `approval.confirmed=false` until the user explicitly approves the preflight summary.
+- Only flip `approval.confirmed` after the user says the plan is confirmed or approved. Never self-confirm because the request seemed detailed or complete.
 - Refuse to run evolve commands that mutate files, execute the evaluator, or write the final summary before confirmation.
 
 ## Initialize cognition
@@ -50,6 +53,8 @@ Treat this skill as the single-agent abstraction of `ASI-Evolve-dev`. Preserve t
 - Keep task scaffolding out of cognition. Problem definitions, function signatures, evaluator details, writable paths, and round-by-round experimental conclusions belong in the run spec or the experiment database, not in cognition.
 
 ## Run each evolution round explicitly
+Perform each round yourself with direct edits plus the provided wrappers. Do not batch the loop into a generated local runner.
+
 1. Sample parent context from the experiment database at the start of every round.
 2. Anchor the next candidate on the sampled parent. Use the sampled node as the primary memory for what to improve, preserve, or branch from.
 3. If the next improvement is already clear, proceed directly from that sampled context. Otherwise search cognition for heuristics, prior lessons, and relevant analogies.
@@ -94,9 +99,11 @@ Treat this skill as the single-agent abstraction of `ASI-Evolve-dev`. Preserve t
 ## Avoid these failures
 - Do not run `python main.py`.
 - Do not import or rely on `pipeline/` agents for orchestration.
+- Do not replace the manual learn/design/experiment/analyze loop with a generated evolution script.
 - Do not mutate files outside `mutation_scope.writable_paths`.
 - Do not mark preflight as confirmed while required fields are missing.
 - Do not confirm preflight without an explicit evaluation timeout.
+- Do not interpret a detailed task request as confirmation. A separate user confirmation is always required.
 - Do not treat unstructured evaluator output as authoritative. Normalize it into explicit metrics before comparing candidates.
 - Do not run an evaluator that can hang indefinitely or ignores the agreed timeout contract.
 - Do not skip the per-round database sample. Each round must begin from sampled run memory, not just whatever remains in chat context.
