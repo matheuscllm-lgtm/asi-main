@@ -39,6 +39,7 @@ _bootstrap_package()
 
 from Evolve.pipeline import Pipeline
 from Evolve.pipeline.run_guard import RunGuard, ActiveRunError
+from Evolve.utils.config import load_config
 
 
 def main():
@@ -86,11 +87,9 @@ def main():
     # Resolve eval_script to absolute path so it works regardless of step CWD
     eval_script = str(Path(args.eval_script).resolve()) if args.eval_script else None
 
-    pipeline = Pipeline(
-        config_path=args.config,
-        experiment_name=args.experiment,
-    )
-    run_guard = RunGuard(pipeline.experiment_dir)
+    experiment_name = _resolve_experiment_name(config_path=args.config, explicit_experiment=args.experiment)
+    experiment_dir = Path(__file__).resolve().parent / "experiments" / experiment_name
+    run_guard = RunGuard(experiment_dir)
 
     try:
         run_guard.acquire()
@@ -99,6 +98,10 @@ def main():
         return 1
 
     try:
+        pipeline = Pipeline(
+            config_path=args.config,
+            experiment_name=args.experiment,
+        )
         pipeline.run(
             max_steps=args.steps,
             eval_script=eval_script,
@@ -120,6 +123,18 @@ def main():
         print(f"Motivation: {best.motivation[:200]}...")
 
     return 0
+
+
+def _resolve_experiment_name(config_path: str | None, explicit_experiment: str | None) -> str:
+    """Resolve experiment name before pipeline construction so guard can lock early."""
+    if explicit_experiment:
+        return explicit_experiment
+
+    loaded = load_config(config_path=config_path)
+    configured = loaded.get("experiment_name")
+    if isinstance(configured, str) and configured:
+        return configured
+    return "default"
 
 
 if __name__ == "__main__":

@@ -1,13 +1,14 @@
 """Utilities for persisting the best-scoring step outputs."""
 
 import json
+import os
 import shutil
+import tempfile
 from pathlib import Path
 from threading import Lock
 from typing import List, Optional
 
 from .structures import Node
-from .atomic_io import atomic_write_json, atomic_write_text
 
 
 class BestSnapshotManager:
@@ -75,19 +76,15 @@ class BestSnapshotManager:
         best_step_dir.mkdir(parents=True, exist_ok=True)
 
         code_file = best_step_dir / "code"
-        atomic_write_text(code_file, node.code or "", encoding="utf-8")
+        self._atomic_write_text(code_file, node.code or "")
 
         best_results_file = best_step_dir / "results.json"
         source_results_file = source_step_dir / "results.json" if source_step_dir else None
         if source_results_file and source_results_file.exists():
-            atomic_write_text(
-                best_results_file,
-                source_results_file.read_text(encoding="utf-8"),
-                encoding="utf-8",
-            )
+            self._atomic_write_text(best_results_file, source_results_file.read_text(encoding="utf-8"))
             return
 
-        atomic_write_json(best_results_file, node.results or {}, ensure_ascii=False, indent=2)
+        self._atomic_write_json(best_results_file, node.results or {})
 
     def _step_name_for_node(self, node: Node) -> str:
         step_name = node.meta_info.get("step_name") if isinstance(node.meta_info, dict) else None
@@ -96,3 +93,21 @@ class BestSnapshotManager:
         if node.id is None:
             return "node_unknown"
         return f"node_{node.id}"
+
+    def _atomic_write_text(self, path: Path, content: str) -> None:
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=str(target.parent),
+            delete=False,
+        ) as tmp:
+            tmp.write(content)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+            tmp_path = Path(tmp.name)
+        os.replace(tmp_path, target)
+
+    def _atomic_write_json(self, path: Path, payload: dict) -> None:
+        self._atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=2))

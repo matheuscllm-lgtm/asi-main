@@ -4,6 +4,8 @@ The pipeline wires together the manager, researcher, engineer, and analyzer
 agents, then executes the evolutionary loop in sequential or parallel mode.
 """
 import json
+import os
+import tempfile
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -17,7 +19,6 @@ from ..utils.logger import init_logger
 from ..utils.prompt import PromptManager
 from ..utils.structures import Node, CognitionItem
 from ..utils import BestSnapshotManager
-from ..utils.atomic_io import atomic_write_json
 from ..database import Database
 from ..cognition import Cognition
 
@@ -25,7 +26,6 @@ from .researcher import Researcher
 from .engineer import Engineer
 from .analyzer import Analyzer
 from .manager import Manager
-from .manifest_repair import canonical_step_from_nodes
 
 
 class Pipeline:
@@ -198,11 +198,11 @@ class Pipeline:
             "manager_initialized": self.manager_initialized,
             "last_updated": datetime.now().isoformat(),
         }
-        atomic_write_json(self.state_file, state, ensure_ascii=False, indent=2)
+        self._atomic_write_json(self.state_file, state)
 
     def _repair_pipeline_state_from_canonical_nodes(self) -> None:
         """Repair stale ``pipeline_state`` values from canonical node history."""
-        canonical_step = canonical_step_from_nodes(self.database.get_all())
+        canonical_step = self._canonical_step_from_nodes(self.database.get_all())
         if canonical_step is None:
             return
 
@@ -216,6 +216,34 @@ class Pipeline:
             "Repaired pipeline_state from canonical node manifest: "
             f"step {prior_step} -> {canonical_step}"
         )
+
+    def _canonical_step_from_nodes(self, nodes: List[Node]) -> Optional[int]:
+        node_list = [node for node in nodes if node.id is not None]
+        if not node_list:
+            return None
+
+        max_node_id = max(int(node.id) for node in node_list if node.id is not None)
+        has_initial = any(
+            node.name == "initial_program"
+            or (isinstance(node.meta_info, dict) and node.meta_info.get("step_name") == "step_0_initial")
+            for node in node_list
+        )
+        return max_node_id if has_initial else max_node_id + 1
+
+    def _atomic_write_json(self, path: Path, payload: Dict[str, Any]) -> None:
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=str(target.parent),
+            delete=False,
+        ) as tmp:
+            json.dump(payload, tmp, ensure_ascii=False, indent=2)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+            tmp_path = Path(tmp.name)
+        os.replace(tmp_path, target)
     
     def run_step(
         self,

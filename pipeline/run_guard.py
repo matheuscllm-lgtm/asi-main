@@ -6,11 +6,10 @@ import json
 import os
 import socket
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
-
-from ..utils.atomic_io import atomic_write_json
 
 
 class RunGuardError(RuntimeError):
@@ -102,7 +101,7 @@ class RunGuard:
 
         # Stale lock: process is provably dead.
         backup_path = self.lock_file.with_suffix(".stale.lock")
-        atomic_write_json(backup_path, lock_data)
+        self._atomic_write_json(backup_path, lock_data)
         self.lock_file.unlink(missing_ok=True)
 
     def _is_our_lock(self, lock_data: Dict[str, Any]) -> bool:
@@ -129,3 +128,18 @@ class RunGuard:
             "Another active run is already holding the experiment lock: "
             f"pid={pid}, host={host}, started_at={started_at}, command={command}"
         )
+
+    def _atomic_write_json(self, path: Path, payload: Dict[str, Any]) -> None:
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=str(target.parent),
+            delete=False,
+        ) as tmp:
+            json.dump(payload, tmp, ensure_ascii=False, indent=2)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+            tmp_path = Path(tmp.name)
+        os.replace(tmp_path, target)

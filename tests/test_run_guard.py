@@ -2,35 +2,23 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
 import tempfile
 import unittest
 from pathlib import Path
+import importlib.util
 
-
-def _bootstrap_evolve_package() -> None:
-    if "Evolve" in sys.modules:
-        return
-
-    root = Path(__file__).resolve().parents[1]
-    spec = importlib.util.spec_from_file_location(
-        "Evolve",
-        root / "__init__.py",
-        submodule_search_locations=[str(root)],
-    )
-    if spec is None or spec.loader is None:
-        raise ImportError("Failed to bootstrap Evolve package for tests")
-
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["Evolve"] = module
-    spec.loader.exec_module(module)
-
-
-_bootstrap_evolve_package()
-
-from Evolve.pipeline.run_guard import ActiveRunError, RunGuard
+_ROOT = Path(__file__).resolve().parents[1]
+_SPEC = importlib.util.spec_from_file_location(
+    "run_guard_test_module",
+    _ROOT / "pipeline" / "run_guard.py",
+)
+if _SPEC is None or _SPEC.loader is None:
+    raise ImportError("Failed to load run_guard module")
+_MODULE = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(_MODULE)
+ActiveRunError = _MODULE.ActiveRunError
+RunGuard = _MODULE.RunGuard
 
 
 class RunGuardTests(unittest.TestCase):

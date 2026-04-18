@@ -1,12 +1,13 @@
 """Persistent node database for evolution experiments."""
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from threading import RLock
 from typing import Any, Dict, List, Optional
 
 from ..utils.structures import Node
-from ..utils.atomic_io import atomic_write_json
 from .algorithms import BaseSampler, get_sampler
 from .faiss_index import FAISSIndex
 from .embedding import EmbeddingService
@@ -242,7 +243,7 @@ class Database:
         if hasattr(self.default_sampler, "get_state"):
             data["sampler_state"] = self.default_sampler.get_state()
 
-        atomic_write_json(data_file, data, ensure_ascii=False, indent=2)
+        self._atomic_write_json(data_file, data)
 
         self.faiss.save()
 
@@ -267,6 +268,24 @@ class Database:
             return False
 
         return abs(float(persisted_score) - float(expected_score)) <= score_tolerance
+
+    def _atomic_write_json(self, path: Path, payload: Dict[str, Any]) -> None:
+        """Persist JSON atomically via temp file + replace."""
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=str(target.parent),
+            delete=False,
+        ) as tmp:
+            json.dump(payload, tmp, ensure_ascii=False, indent=2)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+            tmp_path = Path(tmp.name)
+
+        os.replace(tmp_path, target)
 
     def _load(self):
         """Load database state from disk if available."""
