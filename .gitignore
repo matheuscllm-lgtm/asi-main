@@ -1,2 +1,11 @@
 **/__pycache__/*
 *.env
+.venv/
+experiments/*/logs/
+experiments/*/steps/
+experiments/*/database_data/
+experiments/*/cognition_data/
+experiments/*/pipeline_state.json
+experiments/*/results.json
+experiments/*/.active_run.lock
+experiments/*/.active_run.stale.lock
