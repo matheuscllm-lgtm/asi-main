@@ -8,6 +8,8 @@ That's ASI-Evolve. It is a general agentic framework that closes the loop betwee
 We built it for AI research. But the loop doesn't care about domain.  
 A financial analyst, a biomedical engineer, a climate scientist, or a game developer can all plug their own problem into ASI-Evolve and let it search for better solutions than any human has time to manually explore.
 
+**Quick try:** Install the Evolve Agent Skill under `skills/evolve` to have a lightweight first pass.
+
 <div align="center">
 
 [![Paper](https://img.shields.io/badge/Paper-ASI--Evolve-blue?style=flat&logo=googledocs&logoColor=white)](https://github.com/GAIR-NLP/ASI-Evolve/blob/main/assets/paper.pdf)
@@ -228,6 +230,8 @@ ASI-Evolve/
     ├── circle_packing_demo/        ← included runnable demo
     └── best/circle_packing/        ← top programs from our ablation runs
 ```
+
+> **Skill vs. repository:** When using the Skill, prior experiment traces and instructions accumulate in the model context, and the assistant is not constrained to the same fixed control flow as the official pipeline. End-to-end search quality and throughput are usually lower than when you run this repository directly. Use the Skill for a quick try-out; for very complex or tightly controlled work, prefer cloning and running from here.
 
 ---
 

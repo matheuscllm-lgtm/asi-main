@@ -9,3 +9,5 @@ experiments/*/pipeline_state.json
 experiments/*/results.json
 experiments/*/.active_run.lock
 experiments/*/.active_run.stale.lock
+.evolve_runs/
+.test_tmp/
