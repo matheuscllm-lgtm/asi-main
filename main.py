@@ -38,6 +38,7 @@ def _bootstrap_package() -> None:
 _bootstrap_package()
 
 from Evolve.pipeline import Pipeline
+from Evolve.pipeline.run_guard import RunGuard, ActiveRunError
 
 
 def main():
@@ -82,16 +83,29 @@ def main():
 
     args = parser.parse_args()
 
+    # Resolve eval_script to absolute path so it works regardless of step CWD
+    eval_script = str(Path(args.eval_script).resolve()) if args.eval_script else None
+
     pipeline = Pipeline(
         config_path=args.config,
         experiment_name=args.experiment,
     )
+    run_guard = RunGuard(pipeline.experiment_dir)
 
-    pipeline.run(
-        max_steps=args.steps,
-        eval_script=args.eval_script,
-        sample_n=args.sample_n,
-    )
+    try:
+        run_guard.acquire()
+    except ActiveRunError as exc:
+        print(f"Run guard blocked execution: {exc}")
+        return 1
+
+    try:
+        pipeline.run(
+            max_steps=args.steps,
+            eval_script=eval_script,
+            sample_n=args.sample_n,
+        )
+    finally:
+        run_guard.release()
 
     stats = pipeline.get_stats()
     print("\n=== Statistics ===")
@@ -105,6 +119,8 @@ def main():
         print(f"Score: {best.score:.4f}")
         print(f"Motivation: {best.motivation[:200]}...")
 
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

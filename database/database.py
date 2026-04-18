@@ -6,6 +6,7 @@ from threading import RLock
 from typing import Any, Dict, List, Optional
 
 from ..utils.structures import Node
+from ..utils.atomic_io import atomic_write_json
 from .algorithms import BaseSampler, get_sampler
 from .faiss_index import FAISSIndex
 from .embedding import EmbeddingService
@@ -241,10 +242,31 @@ class Database:
         if hasattr(self.default_sampler, "get_state"):
             data["sampler_state"] = self.default_sampler.get_state()
 
-        with open(data_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        atomic_write_json(data_file, data, ensure_ascii=False, indent=2)
 
         self.faiss.save()
+
+    def validate_persisted_node(self, node_id: int, expected_score: float, score_tolerance: float = 1e-9) -> bool:
+        """Validate that ``nodes.json`` includes a node id with the expected score."""
+        data_file = self.storage_dir / "nodes.json"
+        if not data_file.exists():
+            return False
+
+        try:
+            with open(data_file, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            return False
+
+        node_data = data.get("nodes", {}).get(str(node_id))
+        if not isinstance(node_data, dict):
+            return False
+
+        persisted_score = node_data.get("score")
+        if not isinstance(persisted_score, (int, float)):
+            return False
+
+        return abs(float(persisted_score) - float(expected_score)) <= score_tolerance
 
     def _load(self):
         """Load database state from disk if available."""

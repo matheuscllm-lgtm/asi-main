@@ -17,6 +17,7 @@ from ..utils.logger import init_logger
 from ..utils.prompt import PromptManager
 from ..utils.structures import Node, CognitionItem
 from ..utils import BestSnapshotManager
+from ..utils.atomic_io import atomic_write_json
 from ..database import Database
 from ..cognition import Cognition
 
@@ -24,6 +25,7 @@ from .researcher import Researcher
 from .engineer import Engineer
 from .analyzer import Analyzer
 from .manager import Manager
+from .manifest_repair import canonical_step_from_nodes
 
 
 class Pipeline:
@@ -151,6 +153,7 @@ class Pipeline:
         self.step = 0
         self.manager_initialized = False
         self._load_state()
+        self._repair_pipeline_state_from_canonical_nodes()
         
         self.is_resume = self.step > 0 or len(self.database) > 0
         if self.is_resume:
@@ -165,6 +168,9 @@ class Pipeline:
 
         self.best_snapshot = BestSnapshotManager(self.steps_dir, logger=self.logger)
         self.best_snapshot.init_from_nodes(self.database.get_all())
+        rebuilt_step = self.best_snapshot.repair_from_nodes(self.database.get_all())
+        if rebuilt_step is not None:
+            self.logger.info(f"Repaired best snapshot from canonical nodes: {rebuilt_step}")
     
     def _load_state(self):
         """Restore pipeline progress from disk or infer it from existing data."""
@@ -192,8 +198,24 @@ class Pipeline:
             "manager_initialized": self.manager_initialized,
             "last_updated": datetime.now().isoformat(),
         }
-        with open(self.state_file, "w", encoding="utf-8") as f:
-            json.dump(state, f, ensure_ascii=False, indent=2)
+        atomic_write_json(self.state_file, state, ensure_ascii=False, indent=2)
+
+    def _repair_pipeline_state_from_canonical_nodes(self) -> None:
+        """Repair stale ``pipeline_state`` values from canonical node history."""
+        canonical_step = canonical_step_from_nodes(self.database.get_all())
+        if canonical_step is None:
+            return
+
+        if self.step >= canonical_step:
+            return
+
+        prior_step = self.step
+        self.step = canonical_step
+        self._save_state()
+        self.logger.warning(
+            "Repaired pipeline_state from canonical node manifest: "
+            f"step {prior_step} -> {canonical_step}"
+        )
     
     def run_step(
         self,
@@ -284,6 +306,7 @@ class Pipeline:
                 motivation=researcher_result.get("motivation", ""),
                 code=researcher_result.get("code", ""),
             )
+            node.meta_info["step_name"] = f"step_{current_step}"
             
             engineer_result = {}
             
@@ -342,10 +365,16 @@ class Pipeline:
                     node.results["temp"] = engineer_result["temp"]
             
             node_id = self.database.add(node)
+            if not self.database.validate_persisted_node(node_id=node_id, expected_score=node.score):
+                raise RuntimeError(
+                    f"Node manifest persistence mismatch for node_id={node_id}, step={current_step}"
+                )
+
             self.logger.info(f"Added node {node_id}: {node.name} (score={node.score:.4f})")
             
             self.logger.log_node(node, current_step, database=self.database)
 
+            self._save_state()
             self.best_snapshot.update_if_better(
                 node,
                 step_name=f"step_{current_step}",
@@ -431,6 +460,7 @@ class Pipeline:
             motivation="Initial program provided by user",
             code=initial_code,
         )
+        node.meta_info["step_name"] = "step_0_initial"
         
         engineer_result: Dict[str, Any] = {}
         
