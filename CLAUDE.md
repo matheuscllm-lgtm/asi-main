@@ -150,8 +150,8 @@ sobrescreve o de cima:
   ⚠️ Neste repo, variável **não setada vira string vazia em silêncio** (o
   irmão `asi-evolve` erra alto nesse caso — diferença documentada acima).
 - `utils/llm.py` deste repo **não lê nenhuma env var diretamente** — recebe
-  tudo do config já resolvido. Não há nome de env var hardcoded no código
-  deste repo.
+  tudo do config já resolvido. Env vars entram pelo placeholder `${VAR}` do
+  config; os poucos nomes de env var citados no código não são segredo.
 
 ## Arquitetura
 
@@ -240,7 +240,9 @@ disponível. Se você adicionar testes, documente aqui o comando.
 ## Skill `/auto` (`.claude/commands/auto.md`)
 
 O repo tem uma skill/command: **`/auto`** — modo autônomo **genérico** da
-frota (mesmo contrato sincronizado nos 3 repos ASI-Evolve): executa a tarefa
+frota (byte-idêntico ao do irmão `asi-evolve`; o do `github.com-GAIR-NLP-ASI-Evolve`
+é uma variante deliberadamente genérica, sem as regras da frota de scanners):
+executa a tarefa
 ponta a ponta (corrige, integra, testa, commita, abre **PR draft**, mergeia só
 quando trivialmente seguro) sem pedir confirmação, salvo os riscos altos
 listados no próprio arquivo (perda de dados, segredo, custo relevante —
